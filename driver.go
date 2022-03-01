@@ -1,10 +1,13 @@
 package driver
 
 import (
+	"context"
 	"fmt"
 	"github.com/dtm-labs/dtmdriver"
-	etcd "github.com/go-kratos/kratos/contrib/registry/etcd/v2"
+	"github.com/go-kratos/kratos/contrib/registry/etcd/v2"
+	"github.com/go-kratos/kratos/v2/registry"
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
 	"net/url"
 	"strings"
@@ -22,7 +25,7 @@ func (k *kratosDriver) GetName() string {
 }
 
 func (k *kratosDriver) RegisterGrpcResolver() {
-	resolver.Register(discovery.NewBuilder(etcd.New(nil)))
+	resolver.Register(discovery.NewBuilder(etcd.New(clientv3.NewCtxClient(context.Background()))))
 }
 
 func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error {
@@ -35,18 +38,21 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 		return err
 	}
 
-	//registerInstance := &registry.ServiceInstance{
-	//	Name: strings.TrimPrefix(u.Path, "/"),
-	//	Endpoints: strings.Split(u.Host, ","),
-	//}
+	registerInstance := &registry.ServiceInstance{
+		Name:      strings.TrimPrefix(u.Path, "/"),
+		Endpoints: strings.Split(endpoint, ","),
+	}
+
+	client, err := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(u.Host, ","),
+	})
 
 	switch u.Scheme {
 	case KindEtcd:
+		return etcd.New(client).Register(context.Background(), registerInstance)
 	default:
 		return fmt.Errorf("unknown scheme: %s", u.Scheme)
 	}
-
-	return nil
 }
 
 func (k *kratosDriver) ParseServerMethod(uri string) (server string, method string, err error) {
