@@ -3,20 +3,21 @@ package driver
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"strings"
+
 	"github.com/dtm-labs/dtmdriver"
 	"github.com/go-kratos/kratos/contrib/registry/etcd/v2"
 	"github.com/go-kratos/kratos/v2/registry"
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
-	"net/url"
-	"os"
-	"strings"
 )
 
 const (
 	DriverName = "dtm-driver-kratos"
-	KindEtcd   = "etcd"
+	SchemaName = "discovery"
 )
 
 type kratosDriver struct{}
@@ -57,7 +58,7 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 	})
 
 	switch u.Scheme {
-	case KindEtcd:
+	case SchemaName:
 		return etcd.New(client).Register(context.Background(), registerInstance)
 	default:
 		return fmt.Errorf("unknown scheme: %s", u.Scheme)
