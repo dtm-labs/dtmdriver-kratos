@@ -10,6 +10,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -25,7 +26,15 @@ func (k *kratosDriver) GetName() string {
 }
 
 func (k *kratosDriver) RegisterGrpcResolver() {
-	resolver.Register(discovery.NewBuilder(etcd.New(clientv3.NewCtxClient(context.Background()))))
+	endpoint := os.Getenv("DISCOVERY_ENDPOINT")
+	if endpoint == "" {
+		panic("must set `DISCOVERY_ENDPOINT` env, there no found!")
+	}
+	client, _ := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(endpoint, ","),
+	})
+
+	resolver.Register(discovery.NewBuilder(etcd.New(client), discovery.WithInsecure(true)))
 }
 
 func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error {
@@ -70,6 +79,12 @@ func (k *kratosDriver) ParseServerMethod(uri string) (server string, method stri
 	}
 	index := strings.IndexByte(u.Path[1:], '/') + 1
 	return u.Scheme + "://" + u.Host + u.Path[:index], u.Path[index:], nil
+}
+
+func Init() {
+	if err := dtmdriver.Use(DriverName); err != nil {
+		panic(err)
+	}
 }
 
 func init() {
