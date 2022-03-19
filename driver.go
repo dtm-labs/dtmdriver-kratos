@@ -99,12 +99,6 @@ func (k *kratosDriver) ParseServerMethod(uri string) (server string, method stri
 	return u.Scheme + "://" + u.Host + u.Path[:index], u.Path[index:], nil
 }
 
-func Init() {
-	if err := dtmdriver.Use(DriverName); err != nil {
-		panic(err)
-	}
-}
-
 func init() {
 	dtmdriver.Register(&kratosDriver{})
 }
