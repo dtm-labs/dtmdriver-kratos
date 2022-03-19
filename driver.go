@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
+	"sync"
 
 	"github.com/dtm-labs/dtmdriver"
 	"github.com/go-kratos/kratos/contrib/registry/etcd/v2"
@@ -20,6 +20,31 @@ const (
 	SchemaName = "discovery"
 )
 
+type kratosBuilder struct{}
+
+var builders sync.Map
+
+func newBuilder(endpoint string) resolver.Builder {
+	client, _ := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(endpoint, ","),
+	})
+	return discovery.NewBuilder(etcd.New(client), discovery.WithInsecure(true))
+}
+
+func (*kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	endpoint := target.URL.Host
+	builder, ok := builders.Load(endpoint)
+	if !ok {
+		builder = newBuilder(endpoint)
+		builders.Store(endpoint, builder)
+	}
+	return builder.(resolver.Builder).Build(target, cc, opts)
+}
+
+func (*kratosBuilder) Scheme() string {
+	return SchemaName
+}
+
 type kratosDriver struct{}
 
 func (k *kratosDriver) GetName() string {
@@ -27,15 +52,7 @@ func (k *kratosDriver) GetName() string {
 }
 
 func (k *kratosDriver) RegisterGrpcResolver() {
-	endpoint := os.Getenv("DISCOVERY_ENDPOINT")
-	if endpoint == "" {
-		panic("must set `DISCOVERY_ENDPOINT` env, there no found!")
-	}
-	client, _ := clientv3.New(clientv3.Config{
-		Endpoints: strings.Split(endpoint, ","),
-	})
-
-	resolver.Register(discovery.NewBuilder(etcd.New(client), discovery.WithInsecure(true)))
+	resolver.Register(&kratosBuilder{})
 }
 
 func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error {
