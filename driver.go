@@ -10,6 +10,7 @@ import (
 	"github.com/dtm-labs/dtmdriver"
 	"github.com/go-kratos/kratos/contrib/registry/etcd/v2"
 	"github.com/go-kratos/kratos/v2/registry"
+	_ "github.com/go-kratos/kratos/v2/transport/grpc/resolver/direct"
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
