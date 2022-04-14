@@ -8,42 +8,67 @@ import (
 	"sync"
 
 	"github.com/dtm-labs/dtmdriver"
-	"github.com/go-kratos/kratos/contrib/registry/etcd/v2"
+	consul "github.com/go-kratos/kratos/contrib/registry/consul/v2"
+	etcd "github.com/go-kratos/kratos/contrib/registry/etcd/v2"
 	"github.com/go-kratos/kratos/v2/registry"
 	_ "github.com/go-kratos/kratos/v2/transport/grpc/resolver/direct"
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
-	clientv3 "go.etcd.io/etcd/client/v3"
+	consulAPI "github.com/hashicorp/consul/api"
+	etcdAPI "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
 )
 
 const (
-	DriverName = "dtm-driver-kratos"
-	SchemaName = "discovery"
+	DriverName    = "dtm-driver-kratos"
+	DefaultScheme = "discovery"
+	ConsulScheme  = "consul"
 )
-
-type kratosBuilder struct{}
 
 var builders sync.Map
 
-func newBuilder(endpoint string) resolver.Builder {
-	client, _ := clientv3.New(clientv3.Config{
+type kratosBuilder struct{}
+
+func (b *kratosBuilder) newBuilder(endpoint string) resolver.Builder {
+	client, _ := etcdAPI.New(etcdAPI.Config{
 		Endpoints: strings.Split(endpoint, ","),
 	})
 	return discovery.NewBuilder(etcd.New(client), discovery.WithInsecure(true))
 }
 
-func (*kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+func (b *kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	endpoint := target.URL.Host
 	builder, ok := builders.Load(endpoint)
 	if !ok {
-		builder = newBuilder(endpoint)
+		builder = b.newBuilder(endpoint)
 		builders.Store(endpoint, builder)
 	}
 	return builder.(resolver.Builder).Build(target, cc, opts)
 }
 
-func (*kratosBuilder) Scheme() string {
-	return SchemaName
+func (b *kratosBuilder) Scheme() string {
+	return DefaultScheme
+}
+
+type kratosConsulBuilder struct{}
+
+func (b *kratosConsulBuilder) newBuilder(endpoint string) resolver.Builder {
+	client, _ := consulAPI.NewClient(&consulAPI.Config{Address: endpoint})
+	return discovery.NewBuilder(consul.New(client), discovery.WithInsecure(true))
+}
+
+func (b *kratosConsulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	endpoint := target.URL.Host
+	builder, ok := builders.Load(endpoint)
+	if !ok {
+		builder = b.newBuilder(endpoint)
+		builders.Store(endpoint, builder)
+	}
+	reso, err := builder.(resolver.Builder).Build(target, cc, opts)
+	return reso, err
+}
+
+func (b *kratosConsulBuilder) Scheme() string {
+	return ConsulScheme
 }
 
 type kratosDriver struct{}
@@ -54,6 +79,7 @@ func (k *kratosDriver) GetName() string {
 
 func (k *kratosDriver) RegisterGrpcResolver() {
 	resolver.Register(&kratosBuilder{})
+	resolver.Register(&kratosConsulBuilder{})
 }
 
 func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error {
@@ -65,19 +91,30 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 	if err != nil {
 		return err
 	}
-
-	registerInstance := &registry.ServiceInstance{
-		Name:      strings.TrimPrefix(u.Path, "/"),
-		Endpoints: strings.Split(endpoint, ","),
-	}
-
-	client, err := clientv3.New(clientv3.Config{
-		Endpoints: strings.Split(u.Host, ","),
-	})
-
 	switch u.Scheme {
-	case SchemaName:
+	case DefaultScheme:
+		registerInstance := &registry.ServiceInstance{
+			Name:      strings.TrimPrefix(u.Path, "/"),
+			Endpoints: strings.Split(endpoint, ","),
+		}
+		client, err := etcdAPI.New(etcdAPI.Config{
+			Endpoints: strings.Split(u.Host, ","),
+		})
+		if err != nil {
+			return err
+		}
 		return etcd.New(client).Register(context.Background(), registerInstance)
+
+	case ConsulScheme:
+		registerInstance := &registry.ServiceInstance{
+			Name:      strings.TrimPrefix(u.Path, "/"),
+			Endpoints: strings.Split(endpoint, ","),
+		}
+		client, err := consulAPI.NewClient(&consulAPI.Config{Address: endpoint})
+		if err != nil {
+			return err
+		}
+		return consul.New(client).Register(context.Background(), registerInstance)
 	default:
 		return fmt.Errorf("unknown scheme: %s", u.Scheme)
 	}
