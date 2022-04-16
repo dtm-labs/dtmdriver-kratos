@@ -1,5 +1,7 @@
 package driver
 
+package driver
+
 import (
 	"context"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 const (
 	DriverName    = "dtm-driver-kratos"
 	DefaultScheme = "discovery"
+	EtcdScheme    = "etcd"
 	ConsulScheme  = "consul"
 )
 
@@ -46,7 +49,7 @@ func (b *kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, op
 }
 
 func (b *kratosBuilder) Scheme() string {
-	return DefaultScheme
+	return EtcdScheme
 }
 
 type kratosConsulBuilder struct{}
@@ -93,6 +96,8 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 	}
 	switch u.Scheme {
 	case DefaultScheme:
+		fallthrough
+	case EtcdScheme:
 		registerInstance := &registry.ServiceInstance{
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
