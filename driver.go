@@ -1,7 +1,5 @@
 package driver
 
-package driver
-
 import (
 	"context"
 	"fmt"
