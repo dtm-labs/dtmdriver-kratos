@@ -108,8 +108,11 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 	case DefaultScheme:
 		fallthrough
 	case EtcdScheme:
+		// etcd as registry, so register discovery:// to etcd resolver
+		// so that dtm can handle discovery://
 		defaultBuilder := &kratosDefaultBuilder{builder: &kratosEtcdBuilder{}}
 		resolver.Register(defaultBuilder)
+
 		registerInstance := &registry.ServiceInstance{
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
@@ -123,8 +126,11 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 		return etcd.New(client).Register(context.Background(), registerInstance)
 
 	case ConsulScheme:
+		// etcd as registry, so register discovery:// to consul resolver
+		// so that dtm can handle discovery://
 		defaultBuilder := &kratosDefaultBuilder{builder: &kratosConsulBuilder{}}
 		resolver.Register(defaultBuilder)
+
 		registerInstance := &registry.ServiceInstance{
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
