@@ -27,16 +27,16 @@ const (
 
 var builders sync.Map
 
-type kratosBuilder struct{}
+type kratosEtcdBuilder struct{}
 
-func (b *kratosBuilder) newBuilder(endpoint string) resolver.Builder {
+func (b *kratosEtcdBuilder) newBuilder(endpoint string) resolver.Builder {
 	client, _ := etcdAPI.New(etcdAPI.Config{
 		Endpoints: strings.Split(endpoint, ","),
 	})
 	return discovery.NewBuilder(etcd.New(client), discovery.WithInsecure(true))
 }
 
-func (b *kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+func (b *kratosEtcdBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	endpoint := target.URL.Host
 	builder, ok := builders.Load(endpoint)
 	if !ok {
@@ -46,7 +46,7 @@ func (b *kratosBuilder) Build(target resolver.Target, cc resolver.ClientConn, op
 	return builder.(resolver.Builder).Build(target, cc, opts)
 }
 
-func (b *kratosBuilder) Scheme() string {
+func (b *kratosEtcdBuilder) Scheme() string {
 	return EtcdScheme
 }
 
@@ -72,6 +72,18 @@ func (b *kratosConsulBuilder) Scheme() string {
 	return ConsulScheme
 }
 
+type kratosDefaultBuilder struct {
+	builder resolver.Builder
+}
+
+func (b *kratosDefaultBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	return b.builder.Build(target, cc, opts)
+}
+
+func (b *kratosDefaultBuilder) Scheme() string {
+	return DefaultScheme
+}
+
 type kratosDriver struct{}
 
 func (k *kratosDriver) GetName() string {
@@ -79,7 +91,7 @@ func (k *kratosDriver) GetName() string {
 }
 
 func (k *kratosDriver) RegisterGrpcResolver() {
-	resolver.Register(&kratosBuilder{})
+	resolver.Register(&kratosEtcdBuilder{})
 	resolver.Register(&kratosConsulBuilder{})
 }
 
@@ -96,6 +108,8 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 	case DefaultScheme:
 		fallthrough
 	case EtcdScheme:
+		defaultBuilder := &kratosDefaultBuilder{builder: &kratosEtcdBuilder{}}
+		resolver.Register(defaultBuilder)
 		registerInstance := &registry.ServiceInstance{
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
@@ -109,6 +123,8 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 		return etcd.New(client).Register(context.Background(), registerInstance)
 
 	case ConsulScheme:
+		defaultBuilder := &kratosDefaultBuilder{builder: &kratosConsulBuilder{}}
+		resolver.Register(defaultBuilder)
 		registerInstance := &registry.ServiceInstance{
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
