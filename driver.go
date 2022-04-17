@@ -135,7 +135,7 @@ func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
 		}
-		client, err := consulAPI.NewClient(&consulAPI.Config{Address: endpoint})
+		client, err := consulAPI.NewClient(&consulAPI.Config{Address: u.Host})
 		if err != nil {
 			return err
 		}
