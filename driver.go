@@ -90,12 +90,12 @@ func (k *kratosDriver) GetName() string {
 	return DriverName
 }
 
-func (k *kratosDriver) RegisterGrpcResolver() {
+func (k *kratosDriver) RegisterAddrResolver() {
 	resolver.Register(&kratosEtcdBuilder{})
 	resolver.Register(&kratosConsulBuilder{})
 }
 
-func (k *kratosDriver) RegisterGrpcService(target string, endpoint string) error {
+func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 	if target == "" {
 		return nil
 	}
