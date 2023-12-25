@@ -14,11 +14,12 @@ import (
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
 	"net/url"
+	"os"
 	"strings"
 )
 
 const (
-	DriverName    = "dtm-driver-kratos"
+	DriverName    = "dtm-driver-kratos2"
 	DefaultScheme = "discovery"
 	EtcdScheme    = "etcd"
 	ConsulScheme  = "consul"
@@ -43,6 +44,10 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 	if err != nil {
 		return err
 	}
+
+	// --  @# 从环境变量获取pod ip然后组合为endpoint
+	theEndPoint := "grpc://" + os.Getenv("POD_IP") + ":36790"
+
 	switch u.Scheme {
 	case DefaultScheme:
 		fallthrough
@@ -50,7 +55,7 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 		registerInstance := &registry.ServiceInstance{
 			ID:        uuid.New().String(),
 			Name:      strings.TrimPrefix(u.Path, "/"),
-			Endpoints: strings.Split(endpoint, ","),
+			Endpoints: []string{theEndPoint},
 		}
 		client, err := etcdAPI.New(etcdAPI.Config{
 			Endpoints: strings.Split(u.Host, ","),
@@ -67,7 +72,7 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 		registerInstance := &registry.ServiceInstance{
 			ID:        uuid.New().String(),
 			Name:      strings.TrimPrefix(u.Path, "/"),
-			Endpoints: strings.Split(endpoint, ","),
+			Endpoints: []string{theEndPoint},
 		}
 		client, err := consulAPI.NewClient(&consulAPI.Config{Address: u.Host})
 		if err != nil {
