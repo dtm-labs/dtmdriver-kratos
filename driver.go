@@ -9,6 +9,7 @@ import (
 	"github.com/go-kratos/kratos/v2/registry"
 	_ "github.com/go-kratos/kratos/v2/transport/grpc/resolver/direct"
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
+	"github.com/google/uuid"
 	consulAPI "github.com/hashicorp/consul/api"
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
@@ -47,6 +48,7 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 		fallthrough
 	case EtcdScheme:
 		registerInstance := &registry.ServiceInstance{
+			ID:        uuid.New().String(),
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
 		}
@@ -63,6 +65,7 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 
 	case ConsulScheme:
 		registerInstance := &registry.ServiceInstance{
+			ID:        uuid.New().String(),
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
 		}
