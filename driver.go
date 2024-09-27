@@ -3,7 +3,13 @@ package driver
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/dtm-labs/dtmdriver"
+	"github.com/go-kratos/kratos/contrib/polaris/v2"
 	consul "github.com/go-kratos/kratos/contrib/registry/consul/v2"
 	etcd "github.com/go-kratos/kratos/contrib/registry/etcd/v2"
 	"github.com/go-kratos/kratos/v2/registry"
@@ -11,11 +17,10 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc/resolver/discovery"
 	"github.com/google/uuid"
 	consulAPI "github.com/hashicorp/consul/api"
+	polarisAPI "github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/config"
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/resolver"
-	"net/url"
-	"os"
-	"strings"
 )
 
 const (
@@ -23,6 +28,7 @@ const (
 	DefaultScheme = "discovery"
 	EtcdScheme    = "etcd"
 	ConsulScheme  = "consul"
+	PolarisScheme = "polaris"
 )
 
 type kratosDriver struct{}
@@ -79,6 +85,35 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 			return err
 		}
 		registry := consul.New(client)
+		//add resolver so that dtm can handle discovery://
+		resolver.Register(discovery.NewBuilder(registry, discovery.WithInsecure(true)))
+		return registry.Register(context.Background(), registerInstance)
+	case PolarisScheme:
+		registerInstance := &registry.ServiceInstance{
+			ID:        uuid.New().String(),
+			Name:      strings.TrimPrefix(u.Path, "/"),
+			Endpoints: []string{theEndPoint},
+		}
+
+		polarisCfg, err := config.LoadConfigurationByFile("./polaris.yaml")
+		if nil != err {
+			panic(err)
+		}
+
+		sdkctx, err := polarisAPI.InitContextByConfig(polarisCfg)
+		if nil != err {
+			panic(err)
+		}
+		client := polaris.New(sdkctx, polaris.WithNamespace("go"))
+		registry := client.Registry(
+			polaris.WithRegistryTimeout(time.Second),
+			polaris.WithRegistryHealthy(true),
+			polaris.WithRegistryIsolate(false),
+			polaris.WithRegistryRetryCount(3),
+			polaris.WithRegistryWeight(100),
+			polaris.WithRegistryTTL(3),
+		)
+
 		//add resolver so that dtm can handle discovery://
 		resolver.Register(discovery.NewBuilder(registry, discovery.WithInsecure(true)))
 		return registry.Register(context.Background(), registerInstance)
