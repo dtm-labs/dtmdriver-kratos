@@ -1,19 +1,18 @@
-module github.com/dtm-labs/dtmdriver-kratos
+module github.com/fulltimelink/dtmdriver-kratos
 
 go 1.15
 
 require (
 	github.com/dtm-labs/dtmdriver v0.0.6
+	github.com/go-kratos/kratos/contrib/polaris/v2 v2.0.0-20240918015945-e1f5dc42b1e5
 	github.com/go-kratos/kratos/contrib/registry/consul/v2 v2.0.0-20220414054820-d0b704b8f38d
 	github.com/go-kratos/kratos/contrib/registry/etcd/v2 v2.0.0-20220301040457-03ad2b663624
-	github.com/go-kratos/kratos/v2 v2.2.1
+	github.com/go-kratos/kratos/v2 v2.8.0
+	github.com/google/uuid v1.4.0
 	github.com/hashicorp/consul/api v1.12.0
+	github.com/polarismesh/polaris-go v1.3.0
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
-	google.golang.org/genproto v0.0.0-20220228195345-15d65a4533f7 // indirect
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.61.1
 )

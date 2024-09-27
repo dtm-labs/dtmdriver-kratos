@@ -1,0 +1,11 @@
+global:
+  serverConnector:
+    addresses:
+      - 10.91.0.19:32097
+  client:
+    labels:
+      env: pre
+config:
+  configConnector:
+    addresses:
+      - 10.91.0.19:31635
