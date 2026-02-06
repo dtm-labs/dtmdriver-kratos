@@ -75,6 +75,7 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 		}
 		var Certificates []tls.Certificate
 		var caPool = &x509.CertPool{}
+		var client *etcdAPI.Client
 		if tlsEnable {
 			caPool, err = loadCaPool(tlsConf)
 			if err != nil {
@@ -87,21 +88,25 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 				return err
 			}
 			Certificates = append(Certificates, *cert)
+			client, err = etcdAPI.New(etcdAPI.Config{
+				Endpoints: strings.Split(u.Host, ","),
+				TLS: &tls.Config{
+					RootCAs:      caPool,
+					Certificates: Certificates,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			client, err = etcdAPI.New(etcdAPI.Config{
+				Endpoints: strings.Split(u.Host, ","),
+			})
 		}
-		client, err := etcdAPI.New(etcdAPI.Config{
-			Endpoints: strings.Split(u.Host, ","),
-			TLS: &tls.Config{
-				RootCAs:      caPool,
-				Certificates: Certificates,
-			},
-		})
-		if err != nil {
-			return err
-		}
+
 		registry := etcd.New(client)
 		//add resolver so that dtm can handle discovery://
 		resolver.Register(discovery.NewBuilder(registry, discovery.WithInsecure(true)))
-		//resolver.Register(discovery.NewBuilder(registry))
 		err = registry.Register(context.Background(), registerInstance)
 		if err != nil {
 			log.Println("register instance error: %v", err)
@@ -114,14 +119,22 @@ func (k *kratosDriver) RegisterService(target string, endpoint string) error {
 			Name:      strings.TrimPrefix(u.Path, "/"),
 			Endpoints: strings.Split(endpoint, ","),
 		}
-		client, err := consulAPI.NewClient(&consulAPI.Config{
-			Address: u.Host,
-			TLSConfig: consulAPI.TLSConfig{
-				CAFile:   tlsConf.CaPath,
-				CertFile: tlsConf.CertPath,
-				KeyFile:  tlsConf.CertKeyPath,
-			},
-		})
+
+		var client *consulAPI.Client
+		if tlsEnable {
+			client, err = consulAPI.NewClient(&consulAPI.Config{
+				Address: u.Host,
+				TLSConfig: consulAPI.TLSConfig{
+					CAFile:   tlsConf.CaPath,
+					CertFile: tlsConf.CertPath,
+					KeyFile:  tlsConf.CertKeyPath,
+				},
+			})
+		} else {
+			client, err = consulAPI.NewClient(&consulAPI.Config{
+				Address: u.Host,
+			})
+		}
 		if err != nil {
 			return err
 		}
